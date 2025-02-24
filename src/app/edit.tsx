@@ -1,25 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { rgbaToHex } from "@/lib/utils";
-import {
-  Download,
-  Redo,
-  Square,
-  Trash,
-  Undo,
-  Upload,
-} from "@mynaui/icons-react";
+import { Download, Redo, Square, Trash, Undo, Upload } from "lucide-react";
 import { Eraser } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SketchPicker, TwitterPicker } from "react-color";
 
-export function Edit() {
+export default function PixelEditor() {
   const [gridSize, setGridSize] = useState(16);
   const [color, setColor] = useState("#000000");
   const [isDrawing, setIsDrawing] = useState(false);
@@ -33,9 +22,7 @@ export function Edit() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initializeGrid = useCallback((size: number) => {
-    const newPixels = Array(size)
-      .fill("")
-      .map(() => Array(size).fill("transparent"));
+    const newPixels = Array(size).fill("").map(() => Array(size).fill("transparent"));
     setPixels(newPixels);
     setHistory([newPixels]);
     setHistoryIndex(0);
@@ -60,7 +47,7 @@ export function Edit() {
     window.addEventListener("resize", handleResize);
     handleResize();
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [gridSize]);
 
   useEffect(() => {
     initializeGrid(gridSize);
@@ -68,8 +55,8 @@ export function Edit() {
 
   const updateUsedColors = useCallback((newPixels: string[][]) => {
     const colors = new Set<string>();
-    newPixels.forEach((row) => {
-      row.forEach((pixel) => {
+    newPixels.forEach(row => {
+      row.forEach(pixel => {
         if (pixel !== "transparent") {
           colors.add(rgbaToHex(pixel));
         }
@@ -78,16 +65,13 @@ export function Edit() {
     setUsedColors(Array.from(colors));
   }, []);
 
-  const addToHistory = useCallback(
-    (newPixels: string[][]) => {
-      const newHistory = history.slice(0, historyIndex + 1);
-      newHistory.push(JSON.parse(JSON.stringify(newPixels)));
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-      updateUsedColors(newPixels);
-    },
-    [history, historyIndex, updateUsedColors],
-  );
+  const addToHistory = useCallback((newPixels: string[][]) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(JSON.parse(JSON.stringify(newPixels)));
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    updateUsedColors(newPixels);
+  }, [history, historyIndex, updateUsedColors]);
 
   const handleMouseDown = (rowIndex: number, colIndex: number) => {
     setIsDrawing(true);
@@ -112,7 +96,8 @@ export function Edit() {
     setIsDrawing(false);
   };
 
-  const handleTouchStart = (rowIndex: number, colIndex: number) => {
+  const handleTouchStart = (e: React.TouchEvent, rowIndex: number, colIndex: number) => {
+    e.preventDefault();
     handleMouseDown(rowIndex, colIndex);
   };
 
@@ -133,69 +118,56 @@ export function Edit() {
     }
   };
 
-  const handleImageUpload = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
+  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const currentSize = gridSize;
-          canvas.width = currentSize;
-          canvas.height = currentSize;
-          const ctx = canvas.getContext("2d");
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = gridSize;
+        canvas.height = gridSize;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
 
-          if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const scale = Math.min(gridSize / img.width, gridSize / img.height);
+        const centerShiftX = (gridSize - img.width * scale) / 2;
+        const centerShiftY = (gridSize - img.height * scale) / 2;
 
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(
+          img,
+          centerShiftX,
+          centerShiftY,
+          img.width * scale,
+          img.height * scale
+        );
 
-          const scale = Math.min(
-            currentSize / img.width,
-            currentSize / img.height,
-          );
-          const centerShiftX = (currentSize - img.width * scale) / 2;
-          const centerShiftY = (currentSize - img.height * scale) / 2;
+        const newPixels = Array(gridSize).fill("").map(() => Array(gridSize).fill("transparent"));
 
-          ctx.drawImage(
-            img,
-            centerShiftX,
-            centerShiftY,
-            img.width * scale,
-            img.height * scale,
-          );
-
-          const newPixels = Array(currentSize)
-            .fill("")
-            .map(() => Array(currentSize).fill("transparent"));
-
-          for (let y = 0; y < currentSize; y++) {
-            for (let x = 0; x < currentSize; x++) {
-              const data = ctx.getImageData(x, y, 1, 1).data;
-              if (data[3] > 0) {
-                newPixels[y][x] = `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${
-                  data[3] / 255
-                })`;
-              }
+        for (let y = 0; y < gridSize; y++) {
+          for (let x = 0; x < gridSize; x++) {
+            const data = ctx.getImageData(x, y, 1, 1).data;
+            if (data[3] > 0) {
+              newPixels[y][x] = `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${data[3] / 255})`;
             }
           }
+        }
 
-          setPixels(newPixels);
-          addToHistory(newPixels);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        };
-        img.src = e.target?.result as string;
+        setPixels(newPixels);
+        addToHistory(newPixels);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
       };
-      reader.readAsDataURL(file);
-    },
-    [gridSize, addToHistory],
-  );
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  }, [gridSize, addToHistory]);
 
-  const downloadImage = () => {
+  const downloadImage = useCallback(() => {
     if (!canvasRef.current) return;
 
     const canvas = document.createElement("canvas");
@@ -203,7 +175,6 @@ export function Edit() {
     canvas.width = gridSize * scale;
     canvas.height = gridSize * scale;
     const ctx = canvas.getContext("2d");
-
     if (!ctx) return;
 
     pixels.forEach((row, rowIndex) => {
@@ -217,45 +188,44 @@ export function Edit() {
     link.download = "pixel-art.png";
     link.href = canvas.toDataURL();
     link.click();
-  };
+  }, [gridSize, pixels]);
 
-  const clearCanvas = () => {
+  const clearCanvas = useCallback(() => {
     initializeGrid(gridSize);
-  };
+  }, [gridSize, initializeGrid]);
 
-  const undo = () => {
+  const undo = useCallback(() => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
       const newPixels = JSON.parse(JSON.stringify(history[historyIndex - 1]));
       setPixels(newPixels);
       updateUsedColors(newPixels);
     }
-  };
+  }, [historyIndex, history, updateUsedColors]);
 
-  const redo = () => {
+  const redo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       setHistoryIndex(historyIndex + 1);
       const newPixels = JSON.parse(JSON.stringify(history[historyIndex + 1]));
       setPixels(newPixels);
       updateUsedColors(newPixels);
     }
-  };
+  }, [historyIndex, history, updateUsedColors]);
 
   return (
-    <div className="flex h-screen flex-col gap-4 bg-background">
-      <div className="relative rounded-xl bg-card p-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+    <div className="flex h-screen flex-col gap-4 bg-background p-4">
+      <div className="rounded-xl bg-card p-4 shadow-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
-              <Label className="font-medium">
-                Size: {gridSize}x{gridSize}
-              </Label>
-              <div className="w-40">
+              <Label className="font-medium">Size: {gridSize}x{gridSize}</Label>
+              <div className="w-32 sm:w-40">
                 <Slider
                   min={8}
                   max={100}
                   value={[gridSize]}
                   onValueChange={(e) => setGridSize(Number(e[0]))}
+                  className="w-full"
                 />
               </div>
             </div>
@@ -298,7 +268,7 @@ export function Edit() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input
               ref={fileInputRef}
               type="file"
@@ -342,23 +312,21 @@ export function Edit() {
             </div>
           </div>
         </div>
-
-        <div className="border-inset absolute rounded-xl border-2 border-primary/10" />
       </div>
 
-      <div className="flex-1 rounded-xl border-2 border-zinc-300 bg-card p-4">
-        <div className="mx-auto h-full max-w-7xl">
+      <div className="flex-1 rounded-xl border-2 border-zinc-200 bg-card p-4">
+        <div 
+          className="mx-auto grid h-full w-full place-items-center"
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchEnd={handleMouseUp}
+        >
           <div
             ref={canvasRef}
-            className="grid h-full w-full"
+            className="grid aspect-square w-full max-h-full"
             style={{
-              display: "grid",
               gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
               gridTemplateRows: `repeat(${gridSize}, 1fr)`,
-              aspectRatio: "1 / 1",
-              height: "auto",
-              width: "100%",
-              maxHeight: `calc(100vh - ${gridSize}px)`,
             }}
           >
             {pixels.map((row, rowIndex) =>
@@ -367,14 +335,12 @@ export function Edit() {
                   key={`${rowIndex}-${colIndex}`}
                   onMouseDown={() => handleMouseDown(rowIndex, colIndex)}
                   onMouseOver={() => handleMouseOver(rowIndex, colIndex)}
-                  onTouchStart={() => handleTouchStart(rowIndex, colIndex)}
-                  onTouchMove={(e) => handleTouchMove(e)}
+                  onTouchStart={(e) => handleTouchStart(e, rowIndex, colIndex)}
+                  onTouchMove={handleTouchMove}
                   className="h-full w-full border-[0.5px] border-zinc-200"
-                  style={{
-                    backgroundColor: pixel,
-                  }}
+                  style={{ backgroundColor: pixel }}
                 />
-              )),
+              ))
             )}
           </div>
         </div>
@@ -382,9 +348,12 @@ export function Edit() {
 
       <div className="rounded-lg border border-zinc-200 bg-card p-4">
         <Label className="mb-2 block font-medium">Used Colors</Label>
-        <div className="flex flex-wrap gap-2">
-          <TwitterPicker width="100%" colors={usedColors} className="w-full" />
-        </div>
+        <TwitterPicker 
+          width="100%" 
+          colors={usedColors.length ? usedColors : ['#000000']} 
+          onChange={(color) => setColor(color.hex)}
+          className="w-full"
+        />
       </div>
     </div>
   );
